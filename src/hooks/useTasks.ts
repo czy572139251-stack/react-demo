@@ -1,98 +1,97 @@
 import { useState, useReducer, useEffect, useMemo, useCallback } from "react"
-import { v4 as uuidv4 } from "uuid"
-import type { Task } from "../types"
-
-const STORAGE_KEY = "react-demo-tasks"
+import { taskApi } from "../api/tasks"
+import type { ApiTask } from "../api/tasks"
 
 type Action =
-  | { type: "ADD"; title: string; description: string }
-  | { type: "UPDATE"; id: string; title: string; description: string }
-  | { type: "TOGGLE"; id: string }
+  | { type: "SET"; tasks: ApiTask[] }
+  | { type: "ADD"; task: ApiTask }
+  | { type: "UPDATE"; task: ApiTask }
+  | { type: "TOGGLE"; task: ApiTask }
   | { type: "DELETE"; id: string }
-  | { type: "LOAD"; tasks: Task[] }
 
-function taskReducer(state: Task[], action: Action): Task[] {
+function taskReducer(state: ApiTask[], action: Action): ApiTask[] {
   switch (action.type) {
-    case "ADD": {
-      const newTask: Task = {
-        id: uuidv4(),
-        title: action.title,
-        description: action.description,
-        completed: false,
-        createdAt: new Date().toLocaleString(),
-      }
-      return [newTask, ...state]
-    }
+    case "SET":
+      return action.tasks
+    case "ADD":
+      return [action.task, ...state]
     case "UPDATE":
-      return state.map((t) =>
-        t.id === action.id
-          ? { ...t, title: action.title, description: action.description }
-          : t
-      )
+      return state.map((t) => (t.id === action.task.id ? action.task : t))
     case "TOGGLE":
-      return state.map((t) =>
-        t.id === action.id ? { ...t, completed: !t.completed } : t
-      )
+      return state.map((t) => (t.id === action.task.id ? action.task : t))
     case "DELETE":
       return state.filter((t) => t.id !== action.id)
-    case "LOAD":
-      return action.tasks
     default:
       return state
-  }
-}
-
-function loadTasks(): Task[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY)
-    return data ? JSON.parse(data) : []
-  } catch {
-    return []
   }
 }
 
 export type FilterStatus = "all" | "active" | "completed"
 
 export function useTasks() {
-  const [tasks, dispatch] = useReducer(taskReducer, [], loadTasks)
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
-  }, [tasks])
-
+  const [tasks, dispatch] = useReducer(taskReducer, [])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterStatus>("all")
 
-  const addTask = useCallback((title: string, description: string) => {
-    dispatch({ type: "ADD", title, description })
-  }, [])
-
-  const updateTask = useCallback((id: string, title: string, description: string) => {
-    dispatch({ type: "UPDATE", id, title, description })
-  }, [])
-
-  const toggleTask = useCallback((id: string) => {
-    dispatch({ type: "TOGGLE", id })
-  }, [])
-
-  const deleteTask = useCallback((id: string) => {
-    dispatch({ type: "DELETE", id })
-  }, [])
-
-  const filteredTasks = useMemo(() => {
-    let result = tasks
-    if (filter === "active") result = result.filter((t) => !t.completed)
-    if (filter === "completed") result = result.filter((t) => t.completed)
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q)
-      )
+  const fetchTasks = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await taskApi.getAll({ search, filter })
+      dispatch({ type: "SET", tasks: data })
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-    return result
-  }, [tasks, filter, search])
+  }, [search, filter])
+
+  // Fetch tasks when search or filter changes
+  useEffect(() => {
+    fetchTasks()
+  }, [fetchTasks])
+
+  const addTask = useCallback(async (title: string, description: string) => {
+    try {
+      setError(null)
+      const task = await taskApi.create(title, description)
+      dispatch({ type: "ADD", task })
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }, [])
+
+  const updateTask = useCallback(async (id: string, title: string, description: string) => {
+    try {
+      setError(null)
+      const task = await taskApi.update(id, title, description)
+      dispatch({ type: "UPDATE", task })
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }, [])
+
+  const toggleTask = useCallback(async (id: string) => {
+    try {
+      setError(null)
+      const task = await taskApi.toggle(id)
+      dispatch({ type: "TOGGLE", task })
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }, [])
+
+  const deleteTask = useCallback(async (id: string) => {
+    try {
+      setError(null)
+      await taskApi.delete(id)
+      dispatch({ type: "DELETE", id })
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }, [])
 
   const stats = useMemo(
     () => ({
@@ -104,8 +103,10 @@ export function useTasks() {
   )
 
   return {
-    tasks: filteredTasks,
+    tasks,
     stats,
+    loading,
+    error,
     search,
     setSearch,
     filter,

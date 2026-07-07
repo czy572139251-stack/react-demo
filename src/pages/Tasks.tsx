@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { Task } from "../types"
+import type { ApiTask } from "../api/tasks"
 import { useTasks } from "../hooks/useTasks"
 import type { FilterStatus } from "../hooks/useTasks"
 import TaskForm from "../components/TaskForm"
@@ -7,12 +7,12 @@ import TaskList from "../components/TaskList"
 
 export default function Tasks() {
   const {
-    tasks, stats, search, setSearch,
-    filter, setFilter,
+    tasks, stats, loading, error,
+    search, setSearch, filter, setFilter,
     addTask, updateTask, toggleTask, deleteTask,
   } = useTasks()
 
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [editingTask, setEditingTask] = useState<ApiTask | null>(null)
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: "All", value: "all" },
@@ -24,12 +24,23 @@ export default function Tasks() {
     <div>
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 22, marginBottom: 8 }}>Task Manager</h2>
-        <div style={{ display: "flex", gap: 16, fontSize: 14, color: "#666" }}>
+        <div style={{ display: "flex", gap: 16, fontSize: 14, color: "var(--text-secondary)" }}>
           <span>Total: <strong>{stats.total}</strong></span>
           <span>Done: <strong style={{ color: "#52c41a" }}>{stats.completed}</strong></span>
           <span>Pending: <strong style={{ color: "#faad14" }}>{stats.pending}</strong></span>
         </div>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div style={{
+          background: "#fff2f0", border: "1px solid #ffccc7",
+          borderRadius: 6, padding: "8px 16px", marginBottom: 12,
+          color: "#ff4d4f", fontSize: 13,
+        }}>
+          Error: {error}
+        </div>
+      )}
 
       {/* Search + Filter bar */}
       <div style={{
@@ -67,12 +78,18 @@ export default function Tasks() {
         onCancelEdit={() => setEditingTask(null)}
       />
 
-      <TaskList
-        tasks={tasks}
-        onToggle={toggleTask}
-        onDelete={deleteTask}
-        onEdit={setEditingTask}
-      />
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 48, color: "#999" }}>
+          Loading tasks...
+        </div>
+      ) : (
+        <TaskList
+          tasks={tasks}
+          onToggle={toggleTask}
+          onDelete={deleteTask}
+          onEdit={setEditingTask}
+        />
+      )}
     </div>
   )
 }
