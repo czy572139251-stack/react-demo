@@ -106,9 +106,11 @@ react-demo/
 
 ## Screenshots
 
-*[Home page - add screenshot here]*
+<img width="1912" height="948" alt="image" src="https://github.com/user-attachments/assets/f337a064-036c-44b7-a47e-96cfd286478c" />
 
-*[Task Manager with dark theme - add screenshot here]*
+
+<img width="1912" height="948" alt="image" src="https://github.com/user-attachments/assets/eb93a1e0-efaf-476f-bb6f-8b08955361d9" />
+
 
 ---
 
